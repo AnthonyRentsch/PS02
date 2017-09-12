@@ -1,6 +1,6 @@
 ---
 title: "STAT/MATH 495: Problem Set 02"
-author: "WRITE YOUR NAMES HERE"
+author: "Anthony Rentsch"
 date: "2017-09-19"
 output:
   html_document:
@@ -15,31 +15,89 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4.5)
 
 # Load packages
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(broom)
+library(corrplot)
 
 # Note the relative file path, and not absolute file path:
 # http://www.coffeecup.com/help/articles/absolute-vs-relative-pathslinks/
-train <- read_csv("data/train.csv")
+train <- read.csv("data/train.csv")
+test <- read.csv("data/test.csv")
+macro <- read.csv("data/macro.csv")
 ```
 
 
 # Exploratory Data Analysis
 
 ```{r}
-
+#histogram of the sale price of each property
+ggplot(data = train) + geom_histogram(aes(x = price_doc)) + 
+  labs(title = "Histogram of outcome variable") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+```{r}
+#visualize correlation between all property-specific variables
+#using only all complete pairs of observations of any two variables
+new <- train[,c(3,4,5,6,8,9,10,292)]
+M <- cor(new,use="pairwise.complete.obs")
+corrplot(M, method = "circle")
 ```
 
+
+```{r}
+#num_rooms looks like it has strongest correlation with price_doc, so I will use that as my predictor
+ggplot(data = train) + geom_point(aes(x = num_room, y = price_doc)) + 
+  labs(title = "Scatterplot of number of rooms vs. price") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
 
 # Model Fit
 
 ```{r}
+#remove properties for which the number of rooms is not included
+new.train <- train[-which(is.na(train$num_room)),]
 
+#fit spline models for four different degress of freedom
+two <- smooth.spline(new.train$num_room, new.train$price_doc, df=2) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train$num_room)) +
+  geom_point(aes(y = new.train$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1) 
+
+seven <- smooth.spline(new.train$num_room, new.train$price_doc, df=7) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train$num_room)) +
+  geom_point(aes(y = new.train$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1)
+
+ ten <- smooth.spline(new.train$num_room, new.train$price_doc, df=10) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train$num_room)) +
+  geom_point(aes(y = new.train$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1)
+
+thirteen <- smooth.spline(new.train$num_room, new.train$price_doc, df=13) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train$num_room)) +
+  geom_point(aes(y = new.train$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1)
+
+two
+seven
+ten
+thirteen
 ```
-
 
 # Create Submission File
 
 ```{r}
+#will use df = 7 to create spline, as it appears to give best fit
+spline <- smooth.spline(new.train$num_room, new.train$price_doc, df = 7)
 
+prediction <- cbind(id = test$id, price_doc = predict(spline.fit, test$num_room))
+prediction <- as.data.frame(prediction)
+
+write.csv(prediction, file = "submission.csv")
 ```
 
