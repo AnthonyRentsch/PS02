@@ -31,23 +31,23 @@ macro <- read.csv("data/macro.csv")
 
 # Exploratory Data Analysis
 
+Histogram of the sale price of each property.
 ```{r}
-#histogram of the sale price of each property
 ggplot(data = train) + geom_histogram(aes(x = price_doc)) + 
   labs(title = "Histogram of outcome variable") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
+
+Visualize correlation between all property-specific variables, using only complete pairs of observations of any two variables.
 ```{r}
-#visualize correlation between all property-specific variables
-#using only complete pairs of observations of any two variables
 new <- train[,c(3,4,5,6,8,9,10,292)]
 M <- cor(new,use="pairwise.complete.obs")
 corrplot(M, method = "circle")
 ```
 
+The num_rooms variable looks like it has strongest correlation with price_doc, so I will use that as my predictor with the hope that fitting a cubic spline to this data will be less error-prone.
 
 ```{r}
-#num_rooms looks like it has strongest correlation with price_doc, so I will use that as my predictor
 ggplot(data = train) + geom_point(aes(x = num_room, y = price_doc)) + 
   labs(title = "Scatterplot of number of rooms vs. price") +
   theme(plot.title = element_text(hjust = 0.5))
@@ -55,11 +55,13 @@ ggplot(data = train) + geom_point(aes(x = num_room, y = price_doc)) +
 
 # Model Fit
 
+Remove properties for which the number of rooms is not included.
 ```{r}
-#remove properties for which the number of rooms is not included
 new.train <- train[-which(is.na(train$num_room)),]
+```
 
-#fit spline models for four different degress of freedom
+Fit spline models for four different degress of freedom.
+```{r}
 two <- smooth.spline(new.train$num_room, new.train$price_doc, df=2) %>%
   broom::augment() %>% 
   ggplot(aes(x = new.train$num_room)) +
@@ -100,28 +102,33 @@ thirteen
 
 # Review and Create Submission File
 
+Will use df = 7 to create spline model, as it appears to give best fit.
 ```{r}
-#will use df = 7 to create spline model, as it appears to give best fit
 spline.model <- smooth.spline(new.train$num_room, new.train$price_doc, df = 7)
+```
 
-#predict the price_doc for the test set using spline.model
+Predict the price_doc for the test set using spline.model.
+```{r}
 new_data = test$num_room
 pred <- predict(spline.model, new_data)
 pred <- as.data.frame(pred)
+```
 
-#plot original data, spline model, and predictions
+Plot original data, spline model, and predictions.
+```{r}
 spline.model %>% broom::augment() %>% ggplot() +
   geom_point(aes(x = new.train$num_room, y = new.train$price_doc)) +
   geom_line(aes(x = new.train$num_room, y=.fitted), col="blue", size=1) +
   geom_point(data = pred, aes(x = pred$x, y = pred$y), col = "red", size = 3) +
   labs(x = "num_room", y = "price_doc")
+```
 
-#create a clean list with id and predicted price_doc
+Create a clean list with id and predicted price_doc and write this list to a .csv file.
+```{r}
 pred <- cbind(id = test$id, pred)
 pred <- pred[,-2]
 colnames(pred) <- c("id","price_doc")
 
-#write predictions to .csv file
 write.csv(pred, file = "submission.csv", row.names = F)
 ```
 
