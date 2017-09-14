@@ -15,8 +15,9 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4.5)
 
 # Load packages
-library(dplyr)
-library(ggplot2)
+#library(dplyr)
+#library(ggplot2)
+library(tidyverse)
 library(broom)
 library(corrplot)
 
@@ -38,7 +39,7 @@ ggplot(data = train) + geom_histogram(aes(x = price_doc)) +
 ```
 ```{r}
 #visualize correlation between all property-specific variables
-#using only all complete pairs of observations of any two variables
+#using only complete pairs of observations of any two variables
 new <- train[,c(3,4,5,6,8,9,10,292)]
 M <- cor(new,use="pairwise.complete.obs")
 corrplot(M, method = "circle")
@@ -63,25 +64,33 @@ two <- smooth.spline(new.train$num_room, new.train$price_doc, df=2) %>%
   broom::augment() %>% 
   ggplot(aes(x = new.train$num_room)) +
   geom_point(aes(y = new.train$price_doc)) +
-  geom_line(aes(y=.fitted), col="blue", size=1) 
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "2 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 seven <- smooth.spline(new.train$num_room, new.train$price_doc, df=7) %>%
   broom::augment() %>% 
   ggplot(aes(x = new.train$num_room)) +
   geom_point(aes(y = new.train$price_doc)) +
-  geom_line(aes(y=.fitted), col="blue", size=1)
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "7 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
 
  ten <- smooth.spline(new.train$num_room, new.train$price_doc, df=10) %>%
   broom::augment() %>% 
   ggplot(aes(x = new.train$num_room)) +
   geom_point(aes(y = new.train$price_doc)) +
-  geom_line(aes(y=.fitted), col="blue", size=1)
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "10 degrees of freedom", x = "num_room", y = "price_doc") +
+   theme(plot.title = element_text(hjust = 0.5))
 
 thirteen <- smooth.spline(new.train$num_room, new.train$price_doc, df=13) %>%
   broom::augment() %>% 
   ggplot(aes(x = new.train$num_room)) +
   geom_point(aes(y = new.train$price_doc)) +
-  geom_line(aes(y=.fitted), col="blue", size=1)
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "13 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 two
 seven
@@ -89,15 +98,30 @@ ten
 thirteen
 ```
 
-# Create Submission File
+# Review and Create Submission File
 
 ```{r}
-#will use df = 7 to create spline, as it appears to give best fit
-spline <- smooth.spline(new.train$num_room, new.train$price_doc, df = 7)
+#will use df = 7 to create spline model, as it appears to give best fit
+spline.model <- smooth.spline(new.train$num_room, new.train$price_doc, df = 7)
 
-prediction <- cbind(id = test$id, price_doc = predict(spline.fit, test$num_room))
-prediction <- as.data.frame(prediction)
+#predict the price_doc for the test set using spline.model
+new_data = test$num_room
+pred <- predict(spline.model, new_data)
+pred <- as.data.frame(pred)
 
-write.csv(prediction, file = "submission.csv")
+#plot original data, spline model, and predictions
+spline.model %>% broom::augment() %>% ggplot() +
+  geom_point(aes(x = new.train$num_room, y = new.train$price_doc)) +
+  geom_line(aes(x = new.train$num_room, y=.fitted), col="blue", size=1) +
+  geom_point(data = pred, aes(x = pred$x, y = pred$y), col = "red", size = 3) +
+  labs(x = "num_room", y = "price_doc")
+
+#create a clean list with id and predicted price_doc
+pred <- cbind(id = test$id, pred)
+pred <- pred[,-2]
+colnames(pred) <- c("id","price_doc")
+
+#write predictions to .csv file
+write.csv(pred, file = "submission.csv", row.names = F)
 ```
 
