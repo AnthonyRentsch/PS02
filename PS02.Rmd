@@ -15,8 +15,6 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4.5)
 
 # Load packages
-#library(dplyr)
-#library(ggplot2)
 library(tidyverse)
 library(broom)
 library(corrplot)
@@ -33,20 +31,20 @@ macro <- read.csv("data/macro.csv")
 
 Histogram of the sale price of each property.
 ```{r}
-ggplot(data = train) + geom_histogram(aes(x = price_doc)) + 
-  labs(title = "Histogram of outcome variable") +
+ggplot(data = train) + geom_histogram(aes(x = price_doc), fill = "cadetblue3", bins = 60, color = "cadetblue4")+ ggtitle("Histogram of Home Prices") + 
+  xlab("Sale Price") +
+  ylab("Count") +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-Visualize correlation between all property-specific variables, using only complete pairs of observations of any two variables.
+Visualize correlation between all structure describing variables with high availability in the data set, excluding observations with NA values.
 ```{r}
 new <- train[,c(3,4,5,6,8,9,10,292)]
-M <- cor(new,use="pairwise.complete.obs")
+M <- cor(new, use="pairwise.complete.obs")
 corrplot(M, method = "circle")
 ```
 
-The num_rooms variable looks like it has strongest correlation with price_doc, so I will use that as my predictor with the hope that fitting a cubic spline to this data will be less error-prone.
-
+The num_rooms variable looks like it has strongest linear correlation with price_doc so we chose num_rooms to create our splines model.
 ```{r}
 ggplot(data = train) + geom_point(aes(x = num_room, y = price_doc)) + 
   labs(title = "Scatterplot of number of rooms vs. price") +
@@ -131,4 +129,3 @@ colnames(pred) <- c("id","price_doc")
 
 write.csv(pred, file = "submission.csv", row.names = F)
 ```
-
