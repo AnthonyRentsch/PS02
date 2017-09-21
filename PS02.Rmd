@@ -29,7 +29,7 @@ macro <- read.csv("data/macro.csv")
 
 # Exploratory Data Analysis
 
-Histogram of the sale price of each property.
+Visualizing the distribution of sale price using a histogram, we can see the data has a strong right skew. We might consider a transformation to make sale price more normally distributed. However, for the sake of model interpretability, we chose to proceed with sale price untransformed.
 ```{r}
 ggplot(data = train) + geom_histogram(aes(x = price_doc), fill = "cadetblue3", bins = 60, color = "cadetblue4")+ ggtitle("Histogram of Home Prices") + 
   xlab("Sale Price") +
@@ -100,7 +100,7 @@ thirteen
 
 # Review and Create Submission File
 
-Will use df = 7 to create spline model, as it appears to give best fit.
+Will use df = 7 to create spline model, as it appears to give best fit based on our plots.
 ```{r}
 spline.model <- smooth.spline(new.train$num_room, new.train$price_doc, df = 7)
 ```
@@ -129,3 +129,84 @@ colnames(pred) <- c("id","price_doc")
 
 write.csv(pred, file = "submission.csv", row.names = F)
 ```
+
+# Retry with outliers removed
+
+Our first Kaggle submission yielded a score of .45256. Let’s investigate if we can improve that score by removing the high outliers.
+
+Remove properties with 8 or more rooms. (Value chosen by examing scatter plot of sale price vs number of rooms.)
+```{r}
+new.train2 <- new.train[-which(new.train$num_room >= 8),]
+```
+
+Fit spline models for four different degress of freedom. We’ve used different degrees of freedom here since we cannot use more degrees of freedom than we have x values.
+```{r}
+two <- smooth.spline(new.train2$num_room, new.train2$price_doc, df=2) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train2$num_room)) +
+  geom_point(aes(y = new.train2$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "1 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+three <- smooth.spline(new.train2$num_room, new.train2$price_doc, df=3) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train2$num_room)) +
+  geom_point(aes(y = new.train2$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "3 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ five <- smooth.spline(new.train2$num_room, new.train2$price_doc, df=5) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train2$num_room)) +
+  geom_point(aes(y = new.train2$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "5 degrees of freedom", x = "num_room", y = "price_doc") +
+   theme(plot.title = element_text(hjust = 0.5))
+
+seven <- smooth.spline(new.train2$num_room, new.train2$price_doc, df=7) %>%
+  broom::augment() %>% 
+  ggplot(aes(x = new.train2$num_room)) +
+  geom_point(aes(y = new.train2$price_doc)) +
+  geom_line(aes(y=.fitted), col="blue", size=1) +
+  labs(title = "7 degrees of freedom", x = "num_room", y = "price_doc") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+two
+three
+five
+seven
+```
+
+In this case, df = 3 and df = 5 both appear to work well. We settled in the middle on df = 4.
+```{r}
+spline.model2 <- smooth.spline(new.train2$num_room, new.train2$price_doc, df = 4)
+```
+
+Predict the price_doc for the test set using spline.model2.
+```{r}
+new_data2 = test$num_room
+pred2 <- predict(spline.model2, new_data2)
+pred2 <- as.data.frame(pred2)
+```
+
+Plot original data, spline model, and predictions.
+```{r}
+spline.model2 %>% broom::augment() %>% ggplot() +
+  geom_point(aes(x = new.train2$num_room, y = new.train2$price_doc)) +
+  geom_line(aes(x = new.train2$num_room, y=.fitted), col="blue", size=1) +
+  geom_point(data = pred2, aes(x = pred2$x, y = pred2$y), col = "red", size = 3) +
+  labs(x = "num_room", y = "price_doc")
+```
+
+Create a clean list with id and predicted price_doc and write this list to a .csv file for submission to Kaggle.
+```{r}
+pred2 <- cbind(id = test$id, pred2)
+pred2 <- pred2[,-2]
+colnames(pred2) <- c("id","price_doc")
+
+write.csv(pred2, file = "submission2.csv", row.names = F)
+```
+
+Our new Kaggle score is .45247. So, it appears removing outliers improved our model slightly.
