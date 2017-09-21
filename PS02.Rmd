@@ -200,6 +200,8 @@ spline.model2 %>% broom::augment() %>% ggplot() +
   labs(x = "num_room", y = "price_doc")
 ```
 
+Notice that the test set does contain at least one property with more than eight rooms, so our spline model does extrapolate a good deal to predict property value for at least one data point.
+
 Create a clean list with id and predicted price_doc and write this list to a .csv file for submission to Kaggle.
 ```{r}
 pred2 <- cbind(id = test$id, pred2)
